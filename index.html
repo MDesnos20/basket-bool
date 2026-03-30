@@ -68,16 +68,26 @@
 
         // Ecoute temps réel
         db.ref('match').on('value', snapshot => {
-            const data = snapshot.val();
+            let data = snapshot.val();
+            if (!data) {
+                // Initialise si inexistant
+                db.ref('match').set({
+                    scoreTeamA: 0,
+                    scoreTeamB: 0,
+                    timer: 0,
+                    running: false,
+                    lastStart: null
+                });
+                data = { scoreTeamA: 0, scoreTeamB: 0, timer: 0, running: false, lastStart: null };
+            }
+
             document.getElementById('scoreA').innerText = data.scoreTeamA;
             document.getElementById('scoreB').innerText = data.scoreTeamB;
 
-            // Timer calculé dynamiquement si running
             let seconds = data.timer;
             if (data.running && data.lastStart) {
                 seconds += Math.floor((Date.now() - data.lastStart) / 1000);
             }
-
             const m = String(Math.floor(seconds / 60)).padStart(2, '0');
             const s = String(seconds % 60).padStart(2, '0');
             document.getElementById('timer').innerText = `${m}:${s}`;

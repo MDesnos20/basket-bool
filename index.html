@@ -3,54 +3,36 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Basket App</title>
-
+    <title>Basket Scoreboard</title>
     <style>
         body {
             margin: 0;
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             background: #111;
             color: white;
-        }
-
-        /* NAV */
-        .nav {
             display: flex;
-            justify-content: center;
-            gap: 20px;
-            background: black;
-            padding: 10px;
+            flex-direction: column;
+            height: 100vh;
         }
 
-        .nav button {
-            font-size: 18px;
-            padding: 10px;
-        }
-
-        /* VIEWS */
-        .view {
-            display: none;
-        }
-
-        .active {
-            display: block;
-        }
-
-        /* MATCH */
         .timer {
             text-align: center;
             font-size: 8vw;
+            padding: 10px 0;
+            font-weight: bold;
         }
 
         .teams {
+            flex: 1;
             display: flex;
-            height: 60vh;
         }
 
         .team {
             flex: 1;
             display: flex;
             flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
         }
 
         .blue {
@@ -64,97 +46,86 @@
         .score {
             flex: 1;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             font-size: 20vw;
+            font-weight: bold;
         }
 
         .buttons {
             display: flex;
             justify-content: space-around;
+            padding-bottom: 10px;
         }
 
         .buttons button {
-            font-size: 2vw;
-        }
-
-        /* TOURNOI */
-        .tournament {
-            padding: 20px;
-        }
-
-        .match-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-            background: #222;
+            font-size: 3vw;
             padding: 10px;
-        }
-
-        .ranking {
-            margin-top: 20px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
         }
 
         .controls {
             display: flex;
             justify-content: space-around;
-            padding: 10px;
+            padding: 15px;
+            background: #000;
+        }
+
+        .controls button {
+            font-size: 2vw;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            background: #333;
+            color: white;
+        }
+
+        /* 🔥 Cache curseur en fullscreen */
+        body:fullscreen {
+            cursor: none;
+        }
+
+        body:-webkit-full-screen {
+            cursor: none;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="nav">
-        <button onclick="showView('match')">🏀 Match</button>
-        <button onclick="showView('tournament')">🏆 Tournoi</button>
-    </div>
+    <div class="timer" id="timer">00:00</div>
 
-    <!-- MATCH VIEW -->
-    <div id="match" class="view active">
-        <div class="timer" id="timer">00:00</div>
-
-        <h2 style="text-align:center" id="matchTitle">Team A vs Team B</h2>
-
-        <div class="teams">
-            <div class="team blue">
-                <div class="score" id="scoreA">0</div>
-                <div class="buttons">
-                    <button onclick="addScore('A',1)">+1</button>
-                    <button onclick="addScore('A',2)">+2</button>
-                    <button onclick="addScore('A',3)">+3</button>
-                </div>
-            </div>
-
-            <div class="team red">
-                <div class="score" id="scoreB">0</div>
-                <div class="buttons">
-                    <button onclick="addScore('B',1)">+1</button>
-                    <button onclick="addScore('B',2)">+2</button>
-                    <button onclick="addScore('B',3)">+3</button>
-                </div>
+    <div class="teams">
+        <div class="team blue">
+            <div class="score" id="scoreA">0</div>
+            <div class="buttons">
+                <button onclick="addScore('A', -1)">-1</button>
+                <button onclick="addScore('A', 1)">+1</button>
+                <button onclick="addScore('A', 2)">+2</button>
+                <button onclick="addScore('A', 3)">+3</button>
             </div>
         </div>
 
-        <div class="controls">
-            <button onclick="startTimer()">▶</button>
-            <button onclick="stopTimer()">⏸</button>
-            <button onclick="resetTimer()">⏱</button>
-            <button onclick="validateMatch()">✅ Valider</button>
+        <div class="team red">
+            <div class="score" id="scoreB">0</div>
+            <div class="buttons">
+                <button onclick="addScore('B', -1)">-1</button>
+                <button onclick="addScore('B', 1)">+1</button>
+                <button onclick="addScore('B', 2)">+2</button>
+                <button onclick="addScore('B', 3)">+3</button>
+            </div>
         </div>
     </div>
 
-    <!-- TOURNOI VIEW -->
-    <div id="tournament" class="view tournament">
-
-        <h2>🏆 Matchs</h2>
-        <div id="matchList"></div>
-
-        <h2>📊 Classement</h2>
-        <div id="ranking"></div>
-
-        <button onclick="resetTournament()">🔄 Reset Tournoi</button>
-
+    <div class="controls">
+        <button onclick="startTimer()">▶ Play</button>
+        <button onclick="stopTimer()">⏸ Pause</button>
+        <button onclick="resetTimer()">⏱ Reset Timer</button>
+        <button onclick="resetAll()">🔄 Reset All</button>
+        <button onclick="toggleFullscreen()">⛶ Fullscreen</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -175,157 +146,144 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // NAV
-        function showView(v) {
-            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-            document.getElementById(v).classList.add('active');
-        }
+        // LISTENER
+        db.ref('match').on('value', snapshot => {
+            let data = snapshot.val();
 
-        // MATCH LISTENER
-        db.ref().on('value', snap => {
-            const data = snap.val();
-            if (!data) return;
-
-            updateMatch(data.match, data.tournament);
-            renderTournament(data.tournament);
-        });
-
-        // UPDATE MATCH
-        function updateMatch(match, tournament) {
-            scoreA.innerText = match.scoreTeamA;
-            scoreB.innerText = match.scoreTeamB;
-
-            const teamA = tournament.teams.find(t => t.id === match.teamA);
-            const teamB = tournament.teams.find(t => t.id === match.teamB);
-
-            matchTitle.innerText = `${teamA?.name || 'A'} vs ${teamB?.name || 'B'}`;
-
-            updateTimer(match);
-        }
-
-        function updateTimer(m) {
-            let s = m.timer;
-            if (m.running && m.lastStart) {
-                s += Math.floor((Date.now() - m.lastStart) / 1000);
-            }
-            timer.innerText =
-                String(Math.floor(s / 60)).padStart(2, '0') + ":" +
-                String(s % 60).padStart(2, '0');
-        }
-
-        // SCORE
-        function addScore(team, val) {
-            db.ref('match').transaction(m => {
-                if (!m) return m;
-                if (team === 'A') m.scoreTeamA += val;
-                if (team === 'B') m.scoreTeamB += val;
-                return m;
-            });
-        }
-
-        // TIMER
-        function startTimer() { db.ref('match').update({ running: true, lastStart: Date.now() }); }
-        function stopTimer() {
-            db.ref('match').once('value').then(s => {
-                const m = s.val();
-                db.ref('match').update({
-                    timer: m.timer + Math.floor((Date.now() - m.lastStart) / 1000),
-                    running: false, lastStart: null
-                });
-            });
-        }
-        function resetTimer() { db.ref('match').update({ timer: 0, running: false, lastStart: null }); }
-
-        // PLAY MATCH
-        function playMatch(id) {
-            db.ref().once('value').then(s => {
-                const data = s.val();
-                const match = data.tournament.matches.find(m => m.id === id);
-
+            if (!data) {
                 db.ref('match').set({
-                    teamA: match.teamA,
-                    teamB: match.teamB,
                     scoreTeamA: 0,
                     scoreTeamB: 0,
                     timer: 0,
                     running: false,
-                    lastStart: null,
-                    currentMatchId: id
+                    lastStart: null
                 });
+                return;
+            }
 
-                showView('match');
-            });
+            document.getElementById('scoreA').innerText = data.scoreTeamA;
+            document.getElementById('scoreB').innerText = data.scoreTeamB;
+
+            updateTimerDisplay(data);
+        });
+
+        function updateTimerDisplay(data) {
+            let seconds = data.timer;
+
+            if (data.running && data.lastStart) {
+                seconds += Math.floor((Date.now() - data.lastStart) / 1000);
+            }
+
+            const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
         }
 
-        // VALIDATE MATCH
-        function validateMatch() {
-            db.ref().once('value').then(s => {
-                const data = s.val();
-                const m = data.match;
-
-                db.ref(`tournament/matches/${m.currentMatchId - 1}`).update({
-                    scoreA: m.scoreTeamA,
-                    scoreB: m.scoreTeamB,
-                    played: true
-                });
-
-                alert("Match enregistré !");
-            });
-        }
-
-        // RENDER TOURNOI
-        function renderTournament(t) {
-            const list = document.getElementById('matchList');
-            list.innerHTML = '';
-
-            t.matches.forEach(m => {
-                const div = document.createElement('div');
-                div.className = 'match-item';
-
-                const teamA = t.teams.find(x => x.id === m.teamA).name;
-                const teamB = t.teams.find(x => x.id === m.teamB).name;
-
-                div.innerHTML = `
-      ${teamA} vs ${teamB}
-      <button onclick="playMatch(${m.id})">▶</button>
-    `;
-
-                list.appendChild(div);
-            });
-
-            renderRanking(t);
-        }
-
-        // CLASSEMENT
-        function renderRanking(t) {
-            const scores = {};
-
-            t.teams.forEach(team => scores[team.id] = 0);
-
-            t.matches.forEach(m => {
-                if (m.played) {
-                    if (m.scoreA > m.scoreB) scores[m.teamA]++;
-                    if (m.scoreB > m.scoreA) scores[m.teamB]++;
+        // SCORE
+        function addScore(team, value) {
+            db.ref('match').transaction(match => {
+                if (match) {
+                    if (team === 'A') match.scoreTeamA += value;
+                    if (team === 'B') match.scoreTeamB += value;
+                    if (match.scoreTeamA < 0) match.scoreTeamA = 0;
+                    if (match.scoreTeamB < 0) match.scoreTeamB = 0;
                 }
-            });
-
-            const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-
-            const rankDiv = document.getElementById('ranking');
-            rankDiv.innerHTML = '';
-
-            sorted.forEach(([id, pts]) => {
-                const name = t.teams.find(t => t.id === id).name;
-                rankDiv.innerHTML += `<div>${name} - ${pts} victoires</div>`;
+                return match;
             });
         }
 
-        // RESET
-        function resetTournament() {
-            location.reload(); // simple reset
+        // TIMER
+        function startTimer() {
+            db.ref('match').transaction(match => {
+                if (match && !match.running) {
+                    match.running = true;
+                    match.lastStart = Date.now();
+                }
+                return match;
+            });
         }
+
+        function stopTimer() {
+            db.ref('match').transaction(match => {
+                if (match && match.running) {
+                    match.timer += Math.floor((Date.now() - match.lastStart) / 1000);
+                    match.running = false;
+                    match.lastStart = null;
+                }
+                return match;
+            });
+        }
+
+        function resetTimer() {
+            db.ref('match').transaction(match => {
+                if (match) {
+                    match.timer = 0;
+                    match.running = false;
+                    match.lastStart = null;
+                }
+                return match;
+            });
+        }
+
+        function resetAll() {
+            db.ref('match').set({
+                scoreTeamA: 0,
+                scoreTeamB: 0,
+                timer: 0,
+                running: false,
+                lastStart: null
+            });
+        }
+
+        // FULLSCREEN
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+
+            if (!document.fullscreenElement) {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
+        // 🔥 RACCOURCIS CLAVIER
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f') {
+                toggleFullscreen();
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+
+                db.ref('match').once('value').then(snapshot => {
+                    const match = snapshot.val();
+
+                    if (match.running) {
+                        stopTimer();
+                    } else {
+                        startTimer();
+                    }
+                });
+            }
+        });
+
+        // REFRESH TIMER
+        setInterval(() => {
+            db.ref('match').once('value').then(snapshot => {
+                updateTimerDisplay(snapshot.val());
+            });
+        }, 1000);
 
     </script>
+
 </body>
 
 </html>

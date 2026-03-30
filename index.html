@@ -6,24 +6,28 @@
     <title>Basket Scoreboard</title>
     <style>
         body {
-            font-family: sans-serif;
             margin: 0;
+            font-family: Arial, sans-serif;
             background: #111;
-            color: #fff;
-            text-align: center;
-        }
-
-        .timer {
-            font-size: 5em;
-            margin: 20px 0;
-        }
-
-        .teams {
+            color: white;
             display: flex;
-            justify-content: center;
-            align-items: stretch;
-            height: 300px;
-            margin: 20px 0;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* TIMER */
+        .timer {
+            text-align: center;
+            font-size: 8vw;
+            /* 🔥 ultra gros */
+            padding: 10px 0;
+            font-weight: bold;
+        }
+
+        /* ZONE SCORE */
+        .teams {
+            flex: 1;
+            display: flex;
         }
 
         .team {
@@ -31,57 +35,59 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 20px;
-            color: #fff;
+            padding: 10px;
         }
 
-        .team.blue {
+        .blue {
             background: #007bff;
         }
 
-        .team.red {
+        .red {
             background: #dc3545;
         }
 
+        /* SCORE */
         .score {
-            font-size: 8em;
-            margin: 20px 0;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20vw;
+            /* 🔥 ÉNORME */
+            font-weight: bold;
         }
 
+        /* BOUTONS SCORE */
         .buttons {
             display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            justify-content: space-around;
+            padding-bottom: 10px;
         }
 
-        button {
-            font-size: 2em;
-            padding: 10px 20px;
+        .buttons button {
+            font-size: 3vw;
+            padding: 10px;
             border: none;
             border-radius: 10px;
-            cursor: pointer;
-            color: #fff;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
         }
 
-        .blue button {
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        .red button {
-            background: rgba(0, 0, 0, 0.2);
-        }
-
+        /* CONTROLES BAS */
         .controls {
-            margin: 20px 0;
             display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
+            justify-content: space-around;
+            padding: 15px;
+            background: #000;
         }
 
         .controls button {
+            font-size: 2vw;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
             background: #333;
+            color: white;
         }
     </style>
 </head>
@@ -90,38 +96,39 @@
 
     <div class="timer" id="timer">00:00</div>
 
-    <div class="controls">
-        <button onclick="startTimer()">Play</button>
-        <button onclick="stopTimer()">Pause</button>
-        <button onclick="resetTimer()">Reset Timer</button>
-        <button onclick="resetAll()">Reset Score & Timer</button>
-    </div>
-
     <div class="teams">
         <div class="team blue">
+            <div class="score" id="scoreA">0</div>
             <div class="buttons">
                 <button onclick="addScore('A', -1)">-1</button>
                 <button onclick="addScore('A', 1)">+1</button>
                 <button onclick="addScore('A', 2)">+2</button>
                 <button onclick="addScore('A', 3)">+3</button>
             </div>
-            <div class="score" id="scoreA">0</div>
         </div>
+
         <div class="team red">
+            <div class="score" id="scoreB">0</div>
             <div class="buttons">
                 <button onclick="addScore('B', -1)">-1</button>
                 <button onclick="addScore('B', 1)">+1</button>
                 <button onclick="addScore('B', 2)">+2</button>
                 <button onclick="addScore('B', 3)">+3</button>
             </div>
-            <div class="score" id="scoreB">0</div>
         </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="startTimer()">▶ Play</button>
+        <button onclick="stopTimer()">⏸ Pause</button>
+        <button onclick="resetTimer()">⏱ Reset Timer</button>
+        <button onclick="resetAll()">🔄 Reset All</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <script>
-        // 🔥 Remplace par ta config Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCsK7RYrHeDrBGRabVxCS1S21NxDI87Yy8",
             authDomain: "basket-boule.firebaseapp.com",
@@ -136,9 +143,10 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Listener temps réel + init si vide
+        // INIT + LISTENER
         db.ref('match').on('value', snapshot => {
             let data = snapshot.val();
+
             if (!data) {
                 db.ref('match').set({
                     scoreTeamA: 0,
@@ -147,21 +155,28 @@
                     running: false,
                     lastStart: null
                 });
-                data = { scoreTeamA: 0, scoreTeamB: 0, timer: 0, running: false, lastStart: null };
+                return;
             }
 
             document.getElementById('scoreA').innerText = data.scoreTeamA;
             document.getElementById('scoreB').innerText = data.scoreTeamB;
 
+            updateTimerDisplay(data);
+        });
+
+        function updateTimerDisplay(data) {
             let seconds = data.timer;
+
             if (data.running && data.lastStart) {
                 seconds += Math.floor((Date.now() - data.lastStart) / 1000);
             }
+
             const m = String(Math.floor(seconds / 60)).padStart(2, '0');
             const s = String(seconds % 60).padStart(2, '0');
             document.getElementById('timer').innerText = `${m}:${s}`;
-        });
+        }
 
+        // SCORE
         function addScore(team, value) {
             db.ref('match').transaction(match => {
                 if (match) {
@@ -174,6 +189,7 @@
             });
         }
 
+        // TIMER
         function startTimer() {
             db.ref('match').transaction(match => {
                 if (match && !match.running) {
@@ -216,21 +232,15 @@
             });
         }
 
-        // Rafraîchissement toutes les secondes pour timer live
+        // RAFRAÎCHISSEMENT TIMER
         setInterval(() => {
             db.ref('match').once('value').then(snapshot => {
-                const data = snapshot.val();
-                let seconds = data.timer;
-                if (data.running && data.lastStart) {
-                    seconds += Math.floor((Date.now() - data.lastStart) / 1000);
-                }
-                const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-                const s = String(seconds % 60).padStart(2, '0');
-                document.getElementById('timer').innerText = `${m}:${s}`;
+                updateTimerDisplay(snapshot.val());
             });
         }, 1000);
 
     </script>
+
 </body>
 
 </html>

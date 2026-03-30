@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tournoi</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background: #111;
+            color: white;
+            padding: 20px;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .card {
+            background: #222;
+            padding: 20px;
+            margin: 15px auto;
+            border-radius: 15px;
+            max-width: 600px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .card h2 {
+            margin-top: 0;
+        }
+
+        input,
+        select {
+            width: calc(50% - 10px);
+            padding: 10px;
+            margin: 5px;
+            border-radius: 10px;
+            border: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .match {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            transition: background 0.3s;
+        }
+
+        .match.played {
+            background: #555;
+        }
+
+        .match button {
+            background: #28a745;
+            /* vert pour lancer */
+            color: white;
+        }
+
+        .match button:disabled {
+            background: #777;
+            cursor: default;
+        }
+
+        .back {
+            width: 100%;
+            margin-top: 20px;
+            background: #444;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2 class="card">🏀 Match simple</h2>
+    <div class="card">
+        <input id="teamA" placeholder="Équipe A">
+        <input id="teamB" placeholder="Équipe B">
+        <button onclick="startClassicMatch()">Lancer le match</button>
+    </div>
+
+    <h2 class="card">🏆 Créer un tournoi</h2>
+    <div class="card">
+        <input id="team1" placeholder="Équipe 1">
+        <input id="team2" placeholder="Équipe 2">
+        <input id="team3" placeholder="Équipe 3">
+        <button onclick="createTournament()">Créer tournoi</button>
+    </div>
+
+    <h2 class="card">➕ Ajouter un match au tournoi</h2>
+    <div class="card">
+        <select id="selectTeamA"></select>
+        <select id="selectTeamB"></select>
+        <button onclick="addTournamentMatch()">Ajouter match</button>
+    </div>
+
+    <div class="card" id="matchList"></div>
+
+    <button class="back" onclick="goBack()">⬅ Retour</button>
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsK7RYrHeDrBGRabVxCS1S21NxDI87Yy8",
+            authDomain: "basket-boule.firebaseapp.com",
+            databaseURL: "https://basket-boule-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "basket-boule",
+            storageBucket: "basket-boule.firebasestorage.app",
+            messagingSenderId: "606953532311",
+            appId: "1:606953532311:web:33b0d958a2f3f64a54b2d2",
+            measurementId: "G-HFZJDQREW4"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // LISTENER TOURNOI
+        db.ref('tournament').on('value', snapshot => {
+            const data = snapshot.val();
+            if (!data || !data.started) return;
+
+            renderMatches(data.matches);
+        });
+
+        // Mettre à jour les selects dès qu’on récupère les équipes
+        db.ref('tournament/teams').on('value', snapshot => {
+            const teams = snapshot.val() || [];
+            const selectA = document.getElementById('selectTeamA');
+            const selectB = document.getElementById('selectTeamB');
+
+            selectA.innerHTML = '';
+            selectB.innerHTML = '';
+
+            teams.forEach(team => {
+                const optionA = document.createElement('option');
+                optionA.value = team;
+                optionA.innerText = team;
+                selectA.appendChild(optionA);
+
+                const optionB = document.createElement('option');
+                optionB.value = team;
+                optionB.innerText = team;
+                selectB.appendChild(optionB);
+            });
+        });
+
+        function startClassicMatch() {
+            const teamA = document.getElementById('teamA').value;
+            const teamB = document.getElementById('teamB').value;
+
+            if (!teamA || !teamB) {
+                alert("Remplis les deux équipes");
+                return;
+            }
+
+            db.ref().update({
+                "app/mode": "match",
+                "match": {
+                    teamA,
+                    teamB,
+                    scoreTeamA: 0,
+                    scoreTeamB: 0,
+                    timer: 0,
+                    running: false,
+                    lastStart: null
+                }
+            });
+
+            window.location.href = "index.html";
+        }
+
+        function createTournament() {
+            const t1 = document.getElementById('team1').value;
+            const t2 = document.getElementById('team2').value;
+            const t3 = document.getElementById('team3').value;
+
+            const teams = [t1, t2, t3].filter(t => t);
+
+            if (teams.length < 3) {
+                alert("Minimum 3 équipes !");
+                return;
+            }
+
+            const matches = generateMatches(teams);
+
+            db.ref().update({
+                "app/mode": "tournament",
+                "tournament": {
+                    teams,
+                    matches,
+                    currentMatchId: 0,
+                    started: true
+                }
+            });
+
+            loadMatch(matches[0]);
+        }
+        function addTournamentMatch() {
+            const teamA = document.getElementById('selectTeamA').value;
+            const teamB = document.getElementById('selectTeamB').value;
+
+            if (!teamA || !teamB || teamA === teamB) {
+                alert("Sélectionne deux équipes différentes !");
+                return;
+            }
+
+            db.ref('tournament/matches').once('value').then(snapshot => {
+                let matches = snapshot.val() || [];
+
+                const newId = matches.length ? Math.max(...matches.map(m => m.id)) + 1 : 0;
+
+                matches.push({
+                    id: newId,
+                    teamA: teamA,
+                    teamB: teamB,
+                    scoreA: 0,
+                    scoreB: 0,
+                    played: false
+                });
+
+                db.ref('tournament/matches').set(matches);
+            });
+        }
+
+        function generateMatches(teams) {
+            let matches = [];
+            let id = 0;
+
+            for (let i = 0; i < teams.length; i++) {
+                for (let j = i + 1; j < teams.length; j++) {
+                    matches.push({
+                        id: id++,
+                        scoreA: 0,
+                        scoreB: 0,
+                        teamA: teams[i],
+                        teamB: teams[j],
+                        played: false
+                    });
+                }
+            }
+
+            return matches;
+        }
+
+        function renderMatches(matches) {
+            const container = document.getElementById('matchList');
+            container.innerHTML = '';
+
+            matches.forEach(match => {
+                const div = document.createElement('div');
+                div.className = 'match';
+                div.style.background = match.played ? '#333' : '#222';
+                div.style.padding = '10px';
+                div.style.margin = '5px';
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+
+                div.innerHTML = `
+            ${match.teamA} vs ${match.teamB} 
+            <span>Score: ${match.scoreA} - ${match.scoreB}</span>
+            <button ${match.played ? "disabled" : ""} onclick="launchMatch(${match.id})">
+                ${match.played ? "Terminé" : "▶ Jouer"}
+            </button>
+        `;
+                if (match.played) div.classList.add('played');
+                container.appendChild(div);
+            });
+        }
+
+        function launchMatch(id) {
+            db.ref('tournament/currentMatchId').set(id);
+
+            db.ref('tournament/matches').once('value').then(snapshot => {
+                const matches = snapshot.val();
+                const match = matches.find(m => m.id === id);
+
+                db.ref('match').set({
+                    teamA: match.teamA,
+                    teamB: match.teamB,
+                    scoreTeamA: 0,
+                    scoreTeamB: 0,
+                    timer: 0,
+                    running: false,
+                    lastStart: null,
+                    currentMatchId: id
+                });
+
+                window.location.href = "index.html";
+            });
+        }
+
+        // LANCER MATCH
+        function playMatch(id) {
+            db.ref().once('value').then(snapshot => {
+                const data = snapshot.val();
+                const match = data.tournament.matches.find(m => m.id === id);
+
+                db.ref('match').set({
+                    scoreTeamA: 0,
+                    scoreTeamB: 0,
+                    timer: 0,
+                    running: false,
+                    lastStart: null,
+                    teamA: match.teamA,
+                    teamB: match.teamB,
+                    currentMatchId: id
+                });
+
+                window.location.href = "index.html";
+            });
+        }
+
+        // RETOUR
+        function goBack() {
+            window.location.href = "index.html";
+        }
+    </script>
+
+
+
+</body>
+
+</html>

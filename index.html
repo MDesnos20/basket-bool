@@ -99,7 +99,9 @@
     <div class="timer" id="timer">00:00</div>
 
     <div class="teams">
+
         <div class="team blue">
+            <h2 id="teamA"></h2>
             <div class="score" id="scoreA">0</div>
             <div class="buttons">
                 <button onclick="addScore('A', -1)">-1</button>
@@ -110,6 +112,7 @@
         </div>
 
         <div class="team red">
+            <h2 id="teamB"></h2>
             <div class="score" id="scoreB">0</div>
             <div class="buttons">
                 <button onclick="addScore('B', -1)">-1</button>
@@ -126,6 +129,8 @@
         <button onclick="resetTimer()">⏱ Reset Timer</button>
         <button onclick="resetAll()">🔄 Reset All</button>
         <button onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        <button onclick="goToTournament()">🏆 Tournoi</button>
+        <button onclick="finishMatch()">🏁 Fin de match</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -146,6 +151,14 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        db.ref('app/mode').on('value', snapshot => {
+            const mode = snapshot.val();
+
+            if (!mode || mode === "idle") {
+                window.location.href = "tournament.html";
+            }
+        });
+
         // LISTENER
         db.ref('match').on('value', snapshot => {
             let data = snapshot.val();
@@ -156,16 +169,26 @@
                     scoreTeamB: 0,
                     timer: 0,
                     running: false,
-                    lastStart: null
+                    lastStart: null,
+                    teamA: "Team A",
+                    teamB: "Team B"
                 });
                 return;
             }
+
+
+            document.getElementById('teamA').innerText = data.teamA;
+            document.getElementById('teamB').innerText = data.teamB;
 
             document.getElementById('scoreA').innerText = data.scoreTeamA;
             document.getElementById('scoreB').innerText = data.scoreTeamB;
 
             updateTimerDisplay(data);
         });
+
+        function goToTournament() {
+            window.location.href = "tournament.html";
+        }
 
         function updateTimerDisplay(data) {
             let seconds = data.timer;
@@ -252,6 +275,36 @@
                     document.webkitExitFullscreen();
                 }
             }
+        }
+        function finishMatch() {
+            db.ref('match').once('value').then(snapshot => {
+                const m = snapshot.val();
+
+                if (m.currentMatchId === null) {
+                    alert("Ce match n'est pas un match de tournoi !");
+                    return;
+                }
+
+                const matchId = m.currentMatchId;
+                const scoreA = m.scoreTeamA;
+                const scoreB = m.scoreTeamB;
+
+                // Mettre à jour tournoi
+                db.ref('tournament/matches').once('value').then(snap => {
+                    const matches = snap.val();
+                    matches[matchId].scoreA = scoreA;
+                    matches[matchId].scoreB = scoreB;
+                    matches[matchId].played = true;
+
+                    db.ref('tournament/matches').set(matches);
+                    db.ref('match/currentMatchId').set(null);
+
+                    alert("Match terminé !");
+
+                    window.location.href = "tournament.html";
+
+                });
+            });
         }
 
         // 🔥 RACCOURCIS CLAVIER

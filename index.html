@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Score Basket</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        .score {
+            font-size: 5em;
+            margin: 20px;
+        }
+
+        .timer {
+            font-size: 4em;
+            margin: 20px;
+        }
+
+        button {
+            font-size: 2em;
+            margin: 10px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Match Basket</h1>
+
+    <div class="score">
+        <span id="scoreA">0</span> - <span id="scoreB">0</span>
+    </div>
+
+    <div class="timer" id="timer">00:00</div>
+
+    <div>
+        <button onclick="addScore('A')">+1 Team A</button>
+        <button onclick="addScore('B')">+1 Team B</button>
+    </div>
+    <div>
+        <button onclick="startTimer()">Start</button>
+        <button onclick="stopTimer()">Pause</button>
+        <button onclick="resetTimer()">Reset</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script>
+        // 🔥 Remplace par ta config Firebase
+        const firebaseConfig = {
+            apiKey: "TA_API_KEY",
+            authDomain: "TON_PROJET.firebaseapp.com",
+            databaseURL: "https://TON_PROJET.firebaseio.com",
+            projectId: "TON_PROJET",
+            storageBucket: "TON_PROJET.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Ecoute temps réel
+        db.ref('match').on('value', snapshot => {
+            const data = snapshot.val();
+            document.getElementById('scoreA').innerText = data.scoreTeamA;
+            document.getElementById('scoreB').innerText = data.scoreTeamB;
+
+            // Timer calculé dynamiquement si running
+            let seconds = data.timer;
+            if (data.running && data.lastStart) {
+                seconds += Math.floor((Date.now() - data.lastStart) / 1000);
+            }
+
+            const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        });
+
+        // Boutons score
+        function addScore(team) {
+            db.ref('match').transaction(match => {
+                if (match) {
+                    if (team === 'A') match.scoreTeamA++;
+                    if (team === 'B') match.scoreTeamB++;
+                }
+                return match;
+            });
+        }
+
+        // Timer control
+        function startTimer() {
+            db.ref('match').transaction(match => {
+                if (match && !match.running) {
+                    match.running = true;
+                    match.lastStart = Date.now();
+                }
+                return match;
+            });
+        }
+
+        function stopTimer() {
+            db.ref('match').transaction(match => {
+                if (match && match.running) {
+                    match.timer += Math.floor((Date.now() - match.lastStart) / 1000);
+                    match.running = false;
+                    match.lastStart = null;
+                }
+                return match;
+            });
+        }
+
+        function resetTimer() {
+            db.ref('match').set({
+                scoreTeamA: 0,
+                scoreTeamB: 0,
+                timer: 0,
+                running: false,
+                lastStart: null
+            });
+        }
+
+        // Rafraîchissement toutes les secondes (pour Mac)
+        setInterval(() => {
+            db.ref('match').once('value', snapshot => {
+                const data = snapshot.val();
+                let seconds = data.timer;
+                if (data.running && data.lastStart) {
+                    seconds += Math.floor((Date.now() - data.lastStart) / 1000);
+                }
+                const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const s = String(seconds % 60).padStart(2, '0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+            });
+        }, 1000);
+
+    </script>
+</body>
+
+</html>

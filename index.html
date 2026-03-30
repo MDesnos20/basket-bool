@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Basket Scoreboard</title>
+
     <style>
         body {
             margin: 0;
@@ -18,7 +19,6 @@
         .timer {
             text-align: center;
             font-size: 8vw;
-            padding: 10px 0;
             font-weight: bold;
         }
 
@@ -55,14 +55,13 @@
         .buttons {
             display: flex;
             justify-content: space-around;
-            padding-bottom: 10px;
         }
 
         .buttons button {
             font-size: 3vw;
             padding: 10px;
-            border: none;
             border-radius: 10px;
+            border: none;
             background: rgba(0, 0, 0, 0.3);
             color: white;
         }
@@ -71,23 +70,15 @@
             display: flex;
             justify-content: space-around;
             padding: 15px;
-            background: #000;
+            background: black;
         }
 
         .controls button {
             font-size: 2vw;
-            padding: 15px 20px;
-            border: none;
-            border-radius: 10px;
-            background: #333;
-            color: white;
+            padding: 10px;
         }
 
-        /* 🔥 Cache curseur en fullscreen */
-        body:fullscreen {
-            cursor: none;
-        }
-
+        body:fullscreen,
         body:-webkit-full-screen {
             cursor: none;
         }
@@ -121,11 +112,12 @@
     </div>
 
     <div class="controls">
-        <button onclick="startTimer()">▶ Play</button>
-        <button onclick="stopTimer()">⏸ Pause</button>
-        <button onclick="resetTimer()">⏱ Reset Timer</button>
-        <button onclick="resetAll()">🔄 Reset All</button>
-        <button onclick="toggleFullscreen()">⛶ Fullscreen</button>
+        <button onclick="startTimer()">▶</button>
+        <button onclick="stopTimer()">⏸</button>
+        <button onclick="resetTimer()">⏱</button>
+        <button onclick="resetAll()">🔄 Match</button>
+        <button onclick="resetTournament()">🏆 Tournoi</button>
+        <button onclick="toggleFullscreen()">⛶</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -143,148 +135,137 @@
             measurementId: "G-HFZJDQREW4"
         };
 
-
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         // LISTENER
-        db.ref('match').on('value', snapshot => {
-            let data = snapshot.val();
+        db.ref('match').on('value', snap => {
+            const data = snap.val();
+            if (!data) return;
 
-            if (!data) {
-                db.ref('match').set({
-                    scoreTeamA: 0,
-                    scoreTeamB: 0,
-                    timer: 0,
-                    running: false,
-                    lastStart: null
-                });
-                return;
-            }
+            scoreA.innerText = data.scoreTeamA;
+            scoreB.innerText = data.scoreTeamB;
 
-            document.getElementById('scoreA').innerText = data.scoreTeamA;
-            document.getElementById('scoreB').innerText = data.scoreTeamB;
-
-            updateTimerDisplay(data);
+            updateTimer(data);
         });
 
-        function updateTimerDisplay(data) {
+        function updateTimer(data) {
             let seconds = data.timer;
-
             if (data.running && data.lastStart) {
                 seconds += Math.floor((Date.now() - data.lastStart) / 1000);
             }
-
             const m = String(Math.floor(seconds / 60)).padStart(2, '0');
             const s = String(seconds % 60).padStart(2, '0');
-            document.getElementById('timer').innerText = `${m}:${s}`;
+            timer.innerText = `${m}:${s}`;
         }
 
         // SCORE
-        function addScore(team, value) {
-            db.ref('match').transaction(match => {
-                if (match) {
-                    if (team === 'A') match.scoreTeamA += value;
-                    if (team === 'B') match.scoreTeamB += value;
-                    if (match.scoreTeamA < 0) match.scoreTeamA = 0;
-                    if (match.scoreTeamB < 0) match.scoreTeamB = 0;
-                }
-                return match;
+        function addScore(team, val) {
+            db.ref('match').transaction(m => {
+                if (!m) return m;
+                if (team === 'A') m.scoreTeamA = Math.max(0, m.scoreTeamA + val);
+                if (team === 'B') m.scoreTeamB = Math.max(0, m.scoreTeamB + val);
+                return m;
             });
         }
 
         // TIMER
         function startTimer() {
-            db.ref('match').transaction(match => {
-                if (match && !match.running) {
-                    match.running = true;
-                    match.lastStart = Date.now();
+            db.ref('match').transaction(m => {
+                if (m && !m.running) {
+                    m.running = true;
+                    m.lastStart = Date.now();
                 }
-                return match;
+                return m;
             });
         }
 
         function stopTimer() {
-            db.ref('match').transaction(match => {
-                if (match && match.running) {
-                    match.timer += Math.floor((Date.now() - match.lastStart) / 1000);
-                    match.running = false;
-                    match.lastStart = null;
+            db.ref('match').transaction(m => {
+                if (m && m.running) {
+                    m.timer += Math.floor((Date.now() - m.lastStart) / 1000);
+                    m.running = false;
+                    m.lastStart = null;
                 }
-                return match;
+                return m;
             });
         }
 
         function resetTimer() {
-            db.ref('match').transaction(match => {
-                if (match) {
-                    match.timer = 0;
-                    match.running = false;
-                    match.lastStart = null;
+            db.ref('match').transaction(m => {
+                if (m) {
+                    m.timer = 0;
+                    m.running = false;
+                    m.lastStart = null;
                 }
-                return match;
+                return m;
             });
         }
 
         function resetAll() {
             db.ref('match').set({
+                teamA: "Team A",
+                teamB: "Team B",
                 scoreTeamA: 0,
                 scoreTeamB: 0,
                 timer: 0,
                 running: false,
-                lastStart: null
+                lastStart: null,
+                currentMatchId: null
+            });
+        }
+
+        // 🏆 RESET TOURNOI
+        function resetTournament() {
+            db.ref().update({
+                match: {
+                    teamA: "Team A",
+                    teamB: "Team B",
+                    scoreTeamA: 0,
+                    scoreTeamB: 0,
+                    timer: 0,
+                    running: false,
+                    lastStart: null,
+                    currentMatchId: null
+                },
+                "tournament/matches": [
+                    { id: 1, teamA: "A", teamB: "B", scoreA: 0, scoreB: 0, played: false },
+                    { id: 2, teamA: "A", teamB: "C", scoreA: 0, scoreB: 0, played: false },
+                    { id: 3, teamA: "B", teamB: "C", scoreA: 0, scoreB: 0, played: false }
+                ]
             });
         }
 
         // FULLSCREEN
         function toggleFullscreen() {
-            const elem = document.documentElement;
-
             if (!document.fullscreenElement) {
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen();
-                } else if (elem.webkitRequestFullscreen) {
-                    elem.webkitRequestFullscreen();
-                }
+                document.documentElement.requestFullscreen?.();
             } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
+                document.exitFullscreen?.();
             }
         }
 
-        // 🔥 RACCOURCIS CLAVIER
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'f') {
-                toggleFullscreen();
-            }
+        // ⌨️ SHORTCUTS
+        document.addEventListener('keydown', e => {
+            if (e.key === 'f') toggleFullscreen();
 
             if (e.code === 'Space') {
                 e.preventDefault();
-
-                db.ref('match').once('value').then(snapshot => {
-                    const match = snapshot.val();
-
-                    if (match.running) {
-                        stopTimer();
-                    } else {
-                        startTimer();
-                    }
+                db.ref('match').once('value').then(snap => {
+                    const m = snap.val();
+                    m.running ? stopTimer() : startTimer();
                 });
             }
         });
 
-        // REFRESH TIMER
+        // REFRESH
         setInterval(() => {
-            db.ref('match').once('value').then(snapshot => {
-                updateTimerDisplay(snapshot.val());
+            db.ref('match').once('value').then(snap => {
+                if (snap.val()) updateTimer(snap.val());
             });
         }, 1000);
 
     </script>
-
 </body>
 
 </html>

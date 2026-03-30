@@ -1,0 +1,54 @@
+{
+    "match": {
+        "teamA": "Team A",
+        "teamB": "Team B",
+        "scoreTeamA": 0,
+        "scoreTeamB": 0,
+        "timer": 0,
+        "running": false,
+        "lastStart": null,
+        "currentMatchId": null
+    },
+    "tournament": {
+        "teams": [
+            {
+                "id": "A",
+                "name": "Team A"
+            },
+            {
+                "id": "B",
+                "name": "Team B"
+            },
+            {
+                "id": "C",
+                "name": "Team C"
+            }
+        ],
+        "matches": [
+            {
+                "id": 1,
+                "teamA": "A",
+                "teamB": "B",
+                "scoreA": 0,
+                "scoreB": 0,
+                "played": false
+            },
+            {
+                "id": 2,
+                "teamA": "A",
+                "teamB": "C",
+                "scoreA": 0,
+                "scoreB": 0,
+                "played": false
+            },
+            {
+                "id": 3,
+                "teamA": "B",
+                "teamB": "C",
+                "scoreA": 0,
+                "scoreB": 0,
+                "played": false
+            }
+        ]
+    }
+}
